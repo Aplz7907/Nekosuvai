@@ -1,0 +1,467 @@
+:root {
+  --washi: #f6f0e2;
+  --ink: #2b241d;
+  --vermilion: #c0392b;
+  --gold: #d8a94a;
+  --panel: rgba(246, 240, 226, 0.94);
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #1a1a1f;
+  font-family: 'Hiragino Mincho ProN', 'Yu Mincho', 'Noto Serif JP', 'Noto Sans Thai', serif;
+  color: var(--ink);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#game {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+#ui {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ui .screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 22px;
+  background: radial-gradient(circle at 50% 30%, rgba(30, 26, 22, 0.55), rgba(16, 14, 12, 0.85));
+  pointer-events: auto;
+  padding: 24px;
+}
+
+.title {
+  font-size: clamp(38px, 8vw, 82px);
+  letter-spacing: 0.12em;
+  color: var(--washi);
+  text-shadow: 0 4px 0 rgba(0, 0, 0, 0.35);
+  margin: 0;
+}
+
+.subtitle {
+  color: var(--gold);
+  letter-spacing: 0.35em;
+  margin: -14px 0 6px;
+  font-size: 14px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  padding: 18px 22px;
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.28);
+  max-width: min(720px, 92vw);
+}
+
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  margin: 6px 0 14px;
+}
+
+.swatch {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 3px solid var(--ink);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+
+.swatch:hover {
+  transform: translateY(-4px);
+}
+
+.swatch.selected {
+  outline: 3px solid var(--vermilion);
+  outline-offset: 4px;
+}
+
+.btn {
+  font: inherit;
+  font-size: 20px;
+  letter-spacing: 0.1em;
+  padding: 12px 34px;
+  border: 3px solid var(--ink);
+  border-radius: 8px;
+  background: var(--vermilion);
+  color: var(--washi);
+  cursor: pointer;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.3);
+}
+
+.btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* ---------------------------------------------------------------- HUD */
+
+#hud {
+  position: absolute;
+  inset: 0;
+  padding: 14px 18px;
+  display: none;
+}
+
+#hud.on {
+  display: block;
+}
+
+.bar {
+  height: 16px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: rgba(20, 18, 16, 0.55);
+  overflow: hidden;
+}
+
+.bar > i {
+  display: block;
+  height: 100%;
+  width: 0;
+  transition: width 0.08s linear;
+}
+
+#hpBar {
+  width: min(320px, 40vw);
+}
+
+#hpBar > i {
+  background: linear-gradient(#e8646a, #b8323c);
+}
+
+#xpBar {
+  position: absolute;
+  left: 18px;
+  right: 18px;
+  top: 14px;
+  height: 12px;
+}
+
+#xpBar > i {
+  background: linear-gradient(#8fd7ff, #3f9fd6);
+}
+
+.hudRow {
+  position: absolute;
+  top: 36px;
+  left: 18px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--washi);
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.6);
+}
+
+#clock {
+  position: absolute;
+  top: 32px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 34px;
+  color: var(--washi);
+  text-shadow: 0 3px 4px rgba(0, 0, 0, 0.6);
+  letter-spacing: 0.05em;
+}
+
+#stats {
+  position: absolute;
+  top: 34px;
+  right: 18px;
+  text-align: right;
+  color: var(--washi);
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.6);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+#weapons {
+  position: absolute;
+  bottom: 16px;
+  left: 18px;
+  display: flex;
+  gap: 8px;
+}
+
+.wchip {
+  background: var(--panel);
+  border: 2px solid var(--ink);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 13px;
+}
+
+#bossBar {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 22px;
+  width: min(560px, 80vw);
+  display: none;
+}
+
+#bossBar.on {
+  display: block;
+}
+
+#bossBar > .bar > i {
+  background: linear-gradient(#f0b45a, #b8562b);
+}
+
+.bossName {
+  text-align: center;
+  color: var(--washi);
+  font-size: 15px;
+  letter-spacing: 0.3em;
+  margin-bottom: 4px;
+  text-shadow: 0 2px 3px rgba(0, 0, 0, 0.6);
+}
+
+/* ------------------------------------------------------------ level up */
+
+.cards {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.card {
+  width: 220px;
+  background: var(--panel);
+  border: 3px solid var(--ink);
+  border-radius: 12px;
+  padding: 16px;
+  cursor: pointer;
+  box-shadow: 0 8px 0 rgba(0, 0, 0, 0.3);
+  transition: transform 0.12s ease;
+}
+
+.card:hover {
+  transform: translateY(-6px);
+}
+
+.card.weapon {
+  border-color: var(--vermilion);
+}
+
+.card .jp {
+  font-size: 30px;
+  color: var(--vermilion);
+  margin-bottom: 6px;
+}
+
+.card .name {
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.card .desc {
+  font-size: 14px;
+  opacity: 0.8;
+  line-height: 1.5;
+}
+
+.hint {
+  color: rgba(246, 240, 226, 0.75);
+  font-size: 14px;
+  letter-spacing: 0.08em;
+  text-align: center;
+  line-height: 1.7;
+}
+
+.hidden {
+  display: none !important;
+}
+
+#agentBadge {
+  position: absolute;
+  bottom: 16px;
+  right: 18px;
+  display: none;
+  background: rgba(24, 20, 18, 0.8);
+  border: 2px solid var(--gold);
+  color: var(--gold);
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-size: 13px;
+  letter-spacing: 0.12em;
+}
+
+#agentBadge.on {
+  display: block;
+}
+
+/* ------------------------------------------------------- shop & skill tree */
+
+.btnRow {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.btn.ghost {
+  background: rgba(246, 240, 226, 0.9);
+  color: var(--ink);
+  font-size: 17px;
+  padding: 10px 22px;
+}
+
+.shopList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(620px, 92vw);
+  max-height: 56vh;
+  overflow-y: auto;
+  pointer-events: auto;
+}
+
+.shopRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  background: var(--panel);
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+}
+
+.shopRow.dim {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.shopRow:not(.dim):hover {
+  transform: translateX(4px);
+}
+
+.shopRow .jp {
+  font-size: 26px;
+  color: var(--vermilion);
+  min-width: 52px;
+}
+
+.shopRow .grow {
+  flex: 1;
+}
+
+.shopRow .lvl {
+  font-size: 12px;
+  opacity: 0.6;
+}
+
+.shopRow .price {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.branches {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-height: 58vh;
+  overflow-y: auto;
+  pointer-events: auto;
+}
+
+.branch {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 220px;
+}
+
+.branchName {
+  color: var(--gold);
+  text-align: center;
+  letter-spacing: 0.18em;
+  margin-bottom: 2px;
+}
+
+.node {
+  background: var(--panel);
+  border: 3px solid var(--ink);
+  border-radius: 10px;
+  padding: 10px 12px;
+  position: relative;
+}
+
+/* Connector line between nodes in a branch. */
+.node + .node::before {
+  content: '';
+  position: absolute;
+  top: -9px;
+  left: 50%;
+  width: 3px;
+  height: 9px;
+  background: var(--ink);
+}
+
+.node.open {
+  cursor: pointer;
+  border-color: var(--vermilion);
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.25);
+}
+
+.node.open:hover {
+  transform: translateY(-3px);
+}
+
+.node.owned {
+  background: rgba(216, 169, 74, 0.9);
+}
+
+.node.poor {
+  opacity: 0.7;
+}
+
+.node.locked {
+  opacity: 0.35;
+}
+
+.node .jp {
+  font-size: 22px;
+  color: var(--vermilion);
+}
+
+.node .price {
+  margin-top: 6px;
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.pips {
+  letter-spacing: 0.2em;
+  color: var(--gold);
+}
+
+#revives {
+  color: var(--gold);
+  font-size: 13px;
+}
