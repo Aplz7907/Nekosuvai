@@ -4,7 +4,7 @@ export const CONFIG = {
     /** Elevation above the horizon. Billboards are tilted by this to face the camera. */
     elevation: (52 * Math.PI) / 180,
     distance: 30,
-    viewHeight: 17,
+    viewHeight: 14,
   },
   player: {
     maxHp: 120,

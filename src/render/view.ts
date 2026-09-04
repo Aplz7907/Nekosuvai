@@ -23,6 +23,12 @@ const ELEVATION = CONFIG.camera.elevation;
 const BILLBOARD_TILT = -ELEVATION;
 
 const GROUND_TILE = 8;
+/**
+ * The scene renders at 1/PIXEL_SCALE of the window and the canvas is stretched
+ * back up by CSS with nearest sampling — the low-res buffer is what gives the
+ * whole image its pixel look, not just the sprites.
+ */
+const PIXEL_SCALE = 3;
 /** Must not be smaller than ZonePool.cap or hazards would go unrendered. */
 const ZONE_CAPACITY = 512;
 const PROP_CELL = 14;
@@ -82,8 +88,8 @@ export class View {
   private readonly arcGeometries = new Map<number, THREE.RingGeometry>();
 
   constructor(canvas: HTMLCanvasElement) {
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
+    this.renderer.setPixelRatio(1);
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     this.scene.background = new THREE.Color(0x9fc7d8);
@@ -224,7 +230,9 @@ export class View {
   resize(): void {
     const w = innerWidth;
     const h = innerHeight;
-    this.renderer.setSize(w, h, false);
+    // `false` leaves the CSS size alone: the element stays full-window while the
+    // drawing buffer stays small.
+    this.renderer.setSize(Math.ceil(w / PIXEL_SCALE), Math.ceil(h / PIXEL_SCALE), false);
     const half = CONFIG.camera.viewHeight / 2;
     const aspect = w / h;
     this.camera.left = -half * aspect;
@@ -250,8 +258,13 @@ export class View {
     const p = game.player;
 
     const d = CONFIG.camera.distance;
-    this.camera.position.set(p.x, Math.sin(ELEVATION) * d, p.z + Math.cos(ELEVATION) * d);
-    this.camera.lookAt(p.x, 0.8, p.z);
+    // Snap the camera to whole screen pixels, otherwise every sprite crawls
+    // against the pixel grid as the player walks.
+    const unitsPerPixel = CONFIG.camera.viewHeight / Math.max(this.renderer.domElement.height, 1);
+    const camX = Math.round(p.x / unitsPerPixel) * unitsPerPixel;
+    const camZ = Math.round(p.z / unitsPerPixel) * unitsPerPixel;
+    this.camera.position.set(camX, Math.sin(ELEVATION) * d, camZ + Math.cos(ELEVATION) * d);
+    this.camera.lookAt(camX, 0.8, camZ);
 
     // Snap the ground by whole tiles so the texture never appears to slide.
     this.ground.position.x = Math.round(p.x / GROUND_TILE) * GROUND_TILE;

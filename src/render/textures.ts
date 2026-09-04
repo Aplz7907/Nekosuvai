@@ -1,13 +1,54 @@
 import * as THREE from 'three';
-import type { EnemyKind } from '../data/enemies';
+import { ENEMIES, type EnemyKind } from '../data/enemies';
 
 /**
  * All art is generated at runtime so the scaffold runs with zero asset files.
- * Swap these functions for loaded atlases when real sprites exist — nothing
- * else in the renderer needs to change.
+ *
+ * Pixel pipeline: shapes are drawn smooth on a large scratch canvas, then
+ * downsampled to a small texture at a fixed pixels-per-world-unit density and
+ * snapped to a 17-colour palette. Every sprite therefore ends up with the same
+ * pixel size on screen, which is what makes a pixel-art scene read as one set.
+ * Swap these functions for loaded sprite sheets later — nothing else changes.
  */
 
+/** Scratch resolution the vector shapes are drawn at. */
 const SIZE = 128;
+/** Texture pixels per world unit. Raise for finer art, lower for chunkier. */
+const PIXELS_PER_UNIT = 22;
+
+/** Fixed palette: washi paper, ink, vermilion, sakura, earth. */
+const PALETTE: number[][] = [
+  [255, 255, 255],
+  [246, 240, 226],
+  [216, 200, 168],
+  [201, 139, 94],
+  [138, 90, 58],
+  [242, 161, 83],
+  [232, 194, 92],
+  [192, 57, 43],
+  [232, 101, 127],
+  [240, 183, 203],
+  [111, 143, 92],
+  [63, 107, 74],
+  [90, 127, 168],
+  [159, 199, 216],
+  [154, 143, 138],
+  [107, 91, 110],
+  [43, 36, 29],
+];
+
+function nearestColor(r: number, g: number, b: number): number[] {
+  let best = PALETTE[0];
+  let bestD = Infinity;
+  for (const c of PALETTE) {
+    const d = (c[0] - r) ** 2 + (c[1] - g) ** 2 + (c[2] - b) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = c;
+    }
+  }
+  return best;
+}
 
 function canvas(): [HTMLCanvasElement, CanvasRenderingContext2D] {
   const c = document.createElement('canvas');
@@ -19,11 +60,45 @@ function canvas(): [HTMLCanvasElement, CanvasRenderingContext2D] {
   return [c, ctx];
 }
 
-function toTexture(c: HTMLCanvasElement): THREE.CanvasTexture {
-  const tex = new THREE.CanvasTexture(c);
+/**
+ * Downsamples to `worldHeight * PIXELS_PER_UNIT` pixels and snaps to the palette.
+ * `hardAlpha` cuts every pixel to fully on or off — the crisp sprite edge. Soft
+ * alpha is kept for the few blended effects (shadow, flame patch, lightning).
+ */
+function toTexture(src: HTMLCanvasElement, worldHeight: number, hardAlpha = true): THREE.CanvasTexture {
+  const px = Math.max(8, Math.min(160, Math.round(worldHeight * PIXELS_PER_UNIT)));
+  const small = document.createElement('canvas');
+  small.width = px;
+  small.height = px;
+  const ctx = small.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(src, 0, 0, px, px);
+
+  const image = ctx.getImageData(0, 0, px, px);
+  const data = image.data;
+  for (let i = 0; i < data.length; i += 4) {
+    const a = data[i + 3];
+    if (hardAlpha) {
+      if (a < 115) {
+        data[i + 3] = 0;
+        continue;
+      }
+      data[i + 3] = 255;
+    } else if (a === 0) {
+      continue;
+    }
+    const [r, g, b] = nearestColor(data[i], data[i + 1], data[i + 2]);
+    data[i] = r;
+    data[i + 1] = g;
+    data[i + 2] = b;
+  }
+  ctx.putImageData(image, 0, 0);
+
+  const tex = new THREE.CanvasTexture(small);
   tex.colorSpace = THREE.SRGBColorSpace;
-  tex.magFilter = THREE.LinearFilter;
-  tex.minFilter = THREE.LinearMipmapLinearFilter;
+  // Nearest everywhere: this is what keeps the pixels square at any zoom.
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestMipmapNearestFilter;
   tex.generateMipmaps = true;
   return tex;
 }
@@ -64,7 +139,7 @@ export function catFurTexture(): THREE.CanvasTexture {
   // paws
   ellipse(ctx, 54, 108, 9, 7);
   ellipse(ctx, 80, 108, 9, 7);
-  return toTexture(c);
+  return toTexture(c, 1.3);
 }
 
 /** Outline, eyes and muzzle drawn on top of the tinted fur so they never shift hue. */
@@ -113,7 +188,7 @@ export function catDetailTexture(): THREE.CanvasTexture {
     ctx.lineTo(x2, y2);
     ctx.stroke();
   }
-  return toTexture(c);
+  return toTexture(c, 1.3);
 }
 
 const ENEMY_DRAW: Record<EnemyKind, (ctx: CanvasRenderingContext2D) => void> = {
@@ -327,7 +402,8 @@ const ENEMY_DRAW: Record<EnemyKind, (ctx: CanvasRenderingContext2D) => void> = {
 export function enemyTexture(kind: EnemyKind): THREE.CanvasTexture {
   const [c, ctx] = canvas();
   ENEMY_DRAW[kind](ctx);
-  return toTexture(c);
+  // Sized from the enemy's world height so every sprite shares one pixel scale.
+  return toTexture(c, ENEMIES[kind].size);
 }
 
 /** Dried fish — the XP pickup. */
@@ -350,7 +426,7 @@ export function fishTexture(): THREE.CanvasTexture {
     ctx.arc(60 + i * 12, 64, 14, -0.9, 0.9);
     ctx.stroke();
   }
-  return toTexture(c);
+  return toTexture(c, 0.6);
 }
 
 export function hairballTexture(): THREE.CanvasTexture {
@@ -364,7 +440,7 @@ export function hairballTexture(): THREE.CanvasTexture {
     ctx.arc(64, 64, 12 + i * 6, i * 0.7, i * 0.7 + 2.6);
     ctx.stroke();
   }
-  return toTexture(c);
+  return toTexture(c, 0.7);
 }
 
 export function yarnTexture(): THREE.CanvasTexture {
@@ -378,7 +454,7 @@ export function yarnTexture(): THREE.CanvasTexture {
     ctx.ellipse(64, 64, 36, 14, i * 0.6, 0, Math.PI * 2);
     ctx.stroke();
   }
-  return toTexture(c);
+  return toTexture(c, 0.7);
 }
 
 /** Soft blob shadow that grounds every billboard on the 2.5D plane. */
@@ -389,35 +465,42 @@ export function shadowTexture(): THREE.CanvasTexture {
   g.addColorStop(1, 'rgba(0,0,0,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, SIZE, SIZE);
-  return toTexture(c);
+  return toTexture(c, 1.4, false);
 }
 
-/** Tiled ground: grass with faint stone paths and scattered sakura petals. */
+/** Tiled ground: grass, stone flecks and fallen sakura, drawn pixel by pixel. */
 export function groundTexture(repeat: number): THREE.CanvasTexture {
+  const px = 64;
   const c = document.createElement('canvas');
-  c.width = 256;
-  c.height = 256;
+  c.width = px;
+  c.height = px;
   const ctx = c.getContext('2d')!;
-  ctx.fillStyle = '#6f8f5c';
-  ctx.fillRect(0, 0, 256, 256);
-  for (let i = 0; i < 900; i++) {
-    const x = Math.random() * 256;
-    const y = Math.random() * 256;
-    ctx.fillStyle = `rgba(${90 + Math.random() * 40 | 0},${120 + Math.random() * 40 | 0},${70 + Math.random() * 30 | 0},0.6)`;
-    ctx.fillRect(x, y, 3, 3);
+
+  const grass = ['#6f8f5c', '#5f7f4e', '#7a9a63', '#3f6b4a'];
+  for (let y = 0; y < px; y++) {
+    for (let x = 0; x < px; x++) {
+      // Ordered-ish noise keeps the tile from looking like static.
+      const n = (Math.sin(x * 12.9898 + y * 78.233) * 43758.5453) % 1;
+      const i = Math.abs(n) < 0.06 ? 3 : Math.abs(n) < 0.4 ? 1 : Math.abs(n) < 0.85 ? 0 : 2;
+      ctx.fillStyle = grass[i];
+      ctx.fillRect(x, y, 1, 1);
+    }
   }
-  ctx.fillStyle = 'rgba(214,169,190,0.75)';
-  for (let i = 0; i < 40; i++) {
-    ctx.beginPath();
-    ctx.ellipse(Math.random() * 256, Math.random() * 256, 3, 2, Math.random() * 3, 0, Math.PI * 2);
-    ctx.fill();
+  // A few 2x2 sakura petals per tile.
+  ctx.fillStyle = '#f0b7cb';
+  for (let i = 0; i < 10; i++) {
+    const x = (Math.abs(Math.sin(i * 91.7)) * px) | 0;
+    const y = (Math.abs(Math.cos(i * 47.3)) * px) | 0;
+    ctx.fillRect(x, y, 2, 2);
   }
+
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestMipmapNearestFilter;
   tex.wrapS = THREE.RepeatWrapping;
   tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(repeat, repeat);
-  tex.anisotropy = 4;
   return tex;
 }
 
@@ -452,7 +535,7 @@ export function propTexture(kind: PropKind): THREE.CanvasTexture {
     ctx.fillStyle = 'rgba(255,255,255,0.45)';
     ellipse(ctx, 52, 40, 14, 10);
   }
-  return toTexture(c);
+  return toTexture(c, kind === 'torii' ? 4.5 : kind === 'tree' ? 3.6 : 2.2);
 }
 
 /** Warm dried fish used by the boomerang, distinct from the cool XP fish. */
@@ -475,7 +558,7 @@ export function driedFishTexture(): THREE.CanvasTexture {
   }
   ctx.fillStyle = '#5c3a16';
   ellipse(ctx, 40, 58, 4, 4);
-  return toTexture(c);
+  return toTexture(c, 0.7);
 }
 
 /** Soft disc for ground hazards; tinted per instance (ember vs poison). */
@@ -487,7 +570,7 @@ export function zoneTexture(): THREE.CanvasTexture {
   g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, SIZE, SIZE);
-  return toTexture(c);
+  return toTexture(c, 3, false);
 }
 
 /** Horizontal gradient strip stretched between two points for lightning arcs. */
@@ -499,5 +582,5 @@ export function beamTexture(): THREE.CanvasTexture {
   g.addColorStop(1, 'rgba(255,255,255,0)');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, SIZE, SIZE);
-  return toTexture(c);
+  return toTexture(c, 1.5, false);
 }
